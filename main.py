@@ -44,7 +44,6 @@ def preprocess_image(img, w, h):
     detector.detect_async(mp_image, time.time_ns() // 1_000_000)
     nose_coords = []
 
-    # Draw pose landmarks on the frame for upper body parts only
     if DETECTION_RESULT is not None:
         for pose_landmarks in DETECTION_RESULT.pose_landmarks:
             temp = [pose_landmarks[0].x, pose_landmarks[0].y, pose_landmarks[0].z]
@@ -83,18 +82,18 @@ def run():
     if nose_coords is not None:
         json_data = []
         for i in nose_coords:
-            dict = {"nose_x": i[0], "nose_y": i[1]}
+            dict = {"nose_x": i[0]*img_width, "nose_y": i[1]*img_height}
             json_data.append(dict)
 
         json_response = {"prediction": json_data}
         sock.sendall(struct.pack("!I", len(json_response)))
         sock.sendall(json_response.encode())
     else:
-        gesture_prediction = json.dumps(
+        json_response = json.dumps(
             {"prediction": [{"nose_x": "None", "nose_y": "None"}]}
         )
-        sock.sendall(struct.pack("!I", len(gesture_prediction)))
-        sock.sendall(gesture_prediction.encode())
+        sock.sendall(struct.pack("!I", len(json_response)))
+        sock.sendall(json_response.encode())
 
 
 if __name__ == "__main__":
