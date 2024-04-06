@@ -8,6 +8,7 @@ import json
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
+DETECTION_RESULT = None
 
 def save_result(
     result: vision.PoseLandmarkerResult,
