@@ -2,8 +2,6 @@ import time
 import socket
 import mediapipe as mp
 import numpy as np
-import io
-from PIL import Image
 import struct
 import json
 
