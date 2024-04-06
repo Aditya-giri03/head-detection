@@ -11,7 +11,6 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
 
-
 def save_result(
     result: vision.PoseLandmarkerResult,
     unused_output_image: mp.Image,
@@ -36,10 +35,11 @@ options = vision.PoseLandmarkerOptions(
 detector = vision.PoseLandmarker.create_from_options(options)
 
 
-def preprocess_image(image_bytes):
+def preprocess_image(img, w, h):
     # Convert image bytes to OpenCV image
-    img = np.array(Image.open(io.BytesIO(image_bytes)).convert(mode="RGB"))
+    # img = np.array(Image.open(io.BytesIO(image_bytes)).convert(mode="RGB"))
     # img = img.transpose((2, 0, 1))[::-1]  # HWC to CHW
+    img = np.frombuffer(img, np.uint8).reshape(3, h, w)
     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img)
     detector.detect_async(mp_image, time.time_ns() // 1_000_000)
     nose_coords = []
@@ -47,14 +47,12 @@ def preprocess_image(image_bytes):
     # Draw pose landmarks on the frame for upper body parts only
     if DETECTION_RESULT is not None:
         for pose_landmarks in DETECTION_RESULT.pose_landmarks:
-
             temp = [pose_landmarks[0].x, pose_landmarks[0].y, pose_landmarks[0].z]
             nose_coords.append(temp)
 
         return nose_coords
 
     return None
-
 
 
 config = {
@@ -64,11 +62,15 @@ config = {
 
 
 def run():
+    img_width_bytes = sock.recv(4)
+    img_height_bytes = sock.recv(4)
     data_len_bytes = sock.recv(4)
     if len(data_len_bytes) == 0:
         print("Connection closed, exiting...")
         exit(1)
 
+    img_width = struct.unpack("!I", img_width_bytes)[0]
+    img_height = struct.unpack("!I", img_height_bytes)[0]
     data_len = struct.unpack("!I", data_len_bytes)[0]
 
     img = sock.recv(data_len)
@@ -76,10 +78,9 @@ def run():
         img += sock.recv(data_len - len(img))
 
     # print(img)
-    nose_coords = preprocess_image(img)
+    nose_coords = preprocess_image(img, img_width, img_height)
 
     if nose_coords is not None:
-      
         json_data = []
         for i in nose_coords:
             dict = {"nose_x": i[0], "nose_y": i[1]}
