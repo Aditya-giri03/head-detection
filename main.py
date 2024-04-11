@@ -7,6 +7,7 @@ import json
 
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+import cv2
 
 DETECTION_RESULT = None
 
@@ -38,7 +39,7 @@ def preprocess_image(img, w, h):
     # Convert image bytes to OpenCV image
     # img = np.array(Image.open(io.BytesIO(image_bytes)).convert(mode="RGB"))
     # img = img.transpose((2, 0, 1))[::-1]  # HWC to CHW
-    img = np.frombuffer(img, np.uint8).reshape(3, h, w)
+    img = np.frombuffer(img, np.uint8).reshape(h, w, 3)
     mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img)
     detector.detect_async(mp_image, time.time_ns() // 1_000_000)
     nose_coords = []
@@ -46,7 +47,7 @@ def preprocess_image(img, w, h):
     if DETECTION_RESULT is not None:
         for pose_landmarks in DETECTION_RESULT.pose_landmarks:
             temp = [pose_landmarks[0].x, pose_landmarks[0].y, pose_landmarks[0].z]
-            nose_coords.append(temp)
+            nose_coords.append((temp[0],temp[1]))
 
         return nose_coords
 
@@ -75,6 +76,7 @@ def run():
     while len(img) < data_len:
         img += sock.recv(data_len - len(img))
 
+
     # print(img)
     nose_coords = preprocess_image(img, img_width, img_height)
 
@@ -84,16 +86,16 @@ def run():
             dict = {"nose_x": i[0]*img_width, "nose_y": i[1]*img_height}
             json_data.append(dict)
 
-        json_response = {"prediction": json_data}
+        json_response = json.dumps({"prediction": json_data})
         sock.sendall(struct.pack("!I", len(json_response)))
         sock.sendall(json_response.encode())
     else:
         json_response = json.dumps(
-            {"prediction": [{"nose_x": "None", "nose_y": "None"}]}
+            {"prediction": [{"nose_x": 0.0, "nose_y": 0.0}]}
         )
         sock.sendall(struct.pack("!I", len(json_response)))
         sock.sendall(json_response.encode())
-
+    time.sleep(0.1)
 
 if __name__ == "__main__":
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
